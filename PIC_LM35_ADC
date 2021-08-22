@@ -1,0 +1,177 @@
+// PIC16F877A Configuration Bit Settings
+#pragma config FOSC = EXTRC // Oscillator Selection bits (RC oscillator)
+#pragma config WDTE = OFF // Watchdog Timer Enable bit (WDT disabled)
+#pragma config PWRTE = OFF // Power-up Timer Enable bit (PWRT disabled)
+#pragma config BOREN = OFF // Brown-out Reset Enable bit (BOR disabled)
+#pragma config LVP = OFF // Low-Voltage (Single-Supply)
+#pragma config CPD = OFF // Data EEPROM Memory Code Protection bit
+#pragma config WRT = OFF // Flash Program Memory Write Enable bits
+#pragma config CP = OFF // Flash Program Memory Code Protection bit
+#include <xc.h>
+#include <stdint.h>
+#include <stdio.h>
+#define _XTAL_FREQ 6000000
+float Temperature, Voltage;
+char* line1 = " Temperature Is ";
+char* TempSTR[16];
+unsigned int hi,low,val;
+//---------------[ Functions Prototypes ]---------------
+void LCD_Init();
+void LCD_Clear();
+void LCD_CMD(char);
+void LCD_DATA(char);
+void LCD_Set_Cursor(char, char);
+void LCD_Write_Char(char);
+void LCD_Write_String(char*);
+void delay(int);
+void PWM1_Set_Duty(uint16_t);
+void Motor_Temp(float);
+void main(void) {
+LCD_Init();
+LCD_Clear();
+TRISB = 0x1F; // Low 5-pins are input pins
+// Set The Direction To Be Output Pins
+TRISC5 = 0;
+TRISC6 = 0;
+// Initially (0, 1) Say it's ClockWise rotation!
+// For Reversing The Direction Write (1, 0)
+RC5 = 0;
+RC6 = 1;
+//--[ Configure The CCP Module For PWM Mode ]--
+CCP1M3 = 1;
+CCP1M2 = 1;
+TRISC2 = 0; // The CCP1 Output Pin (PWM)
+// Set The PWM Frequency (2kHz)
+PR2 = 124;
+// Set The PS For Timer2 (1:4 Ratio)
+T2CKPS0 = 1;
+T2CKPS1 = 0;
+// Start CCP1 PWM !
+TMR2ON = 1;
+while(1)
+{
+ADCON0 = 0x81; // Turn ADC ON, Select AN0 Channel, ADC Clock = Fosc/8
+// All 8 Channels Are Analog, Result is "Right-Justified"
+// ADC Clock = Fosc/8
+ADCON0|=0x04;
+while(ADCON0&0x04)
+low=ADRESL;
+hi=ADRESH;
+val=((unsigned int)hi<<8)+(unsigned int)low;
+Voltage = val * 0.0048828;
+Temperature = Voltage / 0.01;
+Motor_Temp(Temperature);
+sprintf(TempSTR, " %.3fc", Temperature);
+LCD_Set_Cursor(1,1);
+LCD_Write_String(line1);
+LCD_Set_Cursor(2,1);
+LCD_Write_String(TempSTR);
+__delay_ms(10);
+}
+return;
+}
+void LCD_DATA(char Data)
+{
+PORTC |=0x08;
+PORTD =Data;
+PORTC |=0x01;
+PORTC &=~0x01;
+delay(100);
+}
+void LCD_CMD(char a)
+{
+PORTC &=~0x08;
+PORTD =a;
+PORTC |=0x01;
+PORTC &=~0x01;
+delay(100);
+}
+void LCD_Clear()
+{
+LCD_CMD(0); //Clear the LCD
+LCD_CMD(1); //Move the cursor to first position
+}
+void LCD_Set_Cursor(char a, char b)
+{
+char Temp,z,y;
+if(a== 1)
+{
+Temp = 0x80 + b - 1;
+LCD_CMD(Temp);
+}
+else if(a== 2)
+{
+Temp = 0xC0 + b - 1;
+LCD_CMD(Temp);
+}
+}
+void LCD_Init()
+{
+TRISA=0x01;
+TRISD=0x00;
+TRISC=0x00;
+ADCON1=0x8e;
+LCD_DATA(0x00);
+LCD_CMD(0x38);
+LCD_CMD(0x38);
+LCD_CMD(0x38);
+LCD_CMD(0x38);
+LCD_CMD(0x01);
+LCD_CMD(0x03);
+LCD_CMD(0x03);
+LCD_CMD(0x03);
+LCD_CMD(0x02); //Clears the RAM and initializes the LCD
+LCD_CMD(0x02); //Clears the RAM and initializes the LCD
+LCD_CMD(0x08); //Select Row 1
+LCD_CMD(0x00); //Clear Row 1 Display
+LCD_CMD(0x0C); //Select Row 2
+LCD_CMD(0x00); //Clear Row 2 Display
+LCD_CMD(0x06);
+}
+void LCD_Write_Char(char data)
+{
+LCD_DATA(data);
+delay(100);
+}
+void LCD_Write_String(char *a)
+{
+int i;
+for(i=0;a[i]!='\0';i++)
+LCD_Write_Char(a[i]);
+}
+void delay(int d)
+{
+while(--d);
+}
+void PWM1_Set_Duty(uint16_t DC)
+{
+// Check The DC Value To Make Sure it's Within 10-Bit Range
+if(DC<1024)
+{
+CCP1Y = DC & 1;
+CCP1X = DC & 2;
+CCPR1L = DC >> 2;
+}
+}
+void Motor_Temp(float Temp){
+if(Temp> 120 ){
+PWM1_Set_Duty(0);
+__delay_ms(100);
+}
+else if(Temp < 120 && Temp >100){
+PWM1_Set_Duty(250);
+__delay_ms(100);
+}
+else if(Temp< 100 && Temp >80){
+PWM1_Set_Duty(375);
+__delay_ms(100);
+}
+else if(Temp <80 && Temp >40){
+PWM1_Set_Duty(500);
+__delay_ms(100);
+}
+else if(Temp<40){
+RC5=~RC5;
+RC6=~RC6;
+}
+}
