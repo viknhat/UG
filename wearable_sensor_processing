@@ -1,0 +1,307 @@
+% Main Body
+ 
+% --------------------------------------------------------------------MOTION------------------------------------------------------------------------
+ 
+load dataset_motion.txt;
+Length = [100 52.8 60];          % Centre of mass values
+AccmeterRaw = dataset_motion(:,1:3);
+GyroRaw = dataset_motion(:,4:6);
+ 
+% Angular Parameters
+[AngDisp, AngVel , AngAcc] = AngularParameter(GyroRaw);
+AngDisp_Scalar = rssq(AngDisp,2);
+AngVel_Scalar = rssq(AngVel,2);
+AngAcc_Scalar = rssq(AngAcc,2);
+ 
+ 
+% Linear Parameters (
+LinAcc = AccmeterRaw;       % Linear Acceleration directly from accelerometer
+[LinDisp, LinVel] = LinearParameter(LinAcc);
+ 
+ 
+% Displacement, Velocity and Acceleration
+figure(1)
+ 
+subplot(2,2,1)
+plot(AngDisp_Scalar);
+title("Angular Displacement");
+ 
+subplot(2,2,2)
+plot(AngVel_Scalar);
+title("Angular Velocity");
+ 
+subplot(2,2,3)
+plot(AngAcc_Scalar);
+title("Angular Acceleration");
+ 
+% subplot(2,2,4)
+% plot(LinAcc_Scalar);
+% title("Linear Acceleration");
+ 
+% Acceleration at Location of Interest (ALI):
+[ALI_Temp] = Acceleration_interest(Length, AngVel, AngAcc);
+ALI = reshape(ALI_Temp,[],3);
+ 
+figure(2)
+%[M, N]=length(ALI);
+%t= 1:10:N*10;
+plot(rssq(ALI,2));
+title("Acceleration at point of interest");
+ 
+% Gadd Severity Index:
+[GSI] = GaddIndex(LinAcc);
+fprintf('Gadd Severity Index: %s\n',GSI);
+ 
+% Head Injury Index function call:
+[HIC] = HeadInjury(LinAcc);
+%[M1, N1]=length(HIC);
+%t1= 1:10:N1*10;
+fprintf('Head Injury Index: %s\n',HIC);
+ 
+% General acceleration model function call:
+ 
+figure(3)
+[GAMBIT] = GeneralAccModel(LinAcc, AngAcc);
+plot(rssq(GAMBIT,2));
+title("General Acceleration Model");
+ 
+% Weighted Principal Component Score:
+ 
+% figure(4)
+% subplot(2,1,1)
+% [WPCS] = WeightedPrincipal(GSI,HIC,LinAcc,AngAcc);
+% plot(WPCS);
+% title("Weighted Principal Component Score");
+ 
+ 
+% -------------------------------------------------------------------VITALS------------------------------------------------------------------------
+ 
+load dataset_vitals.txt
+spo2 = dataset_vitals(:,1);
+bodytemp = dataset_vitals(:,2)+5;  % +5 just due to nature of randomly chosen dataset
+pulserate = dataset_vitals(:,3);
+bloodpres = dataset_vitals(:,4);
+age = 27;
+ 
+% Body Temperature
+figure(1)
+plot(bodytemp);
+title("Body Temperature vs Time");
+ 
+% SPO2
+oxysat = -31.25.*spo2+100;       % Calculating oxygen saturation using relation between O2 Sat level vs Ratio of red and infrared light
+figure(2)
+plot(spo2);
+title("Oxygen Saturation vs Time");
+[OxySatStatus] = checkOxySatStatus(spo2);
+fprintf('Oxygen Saturation Status: %s\n',OxySatStatus);
+ 
+% Pulse Rate and Respiration Rate
+figure(3)
+subplot(2,1,1)
+plot(pulserate);
+title("Heart Rate vs Time");
+HVR = std(pulserate);               % Heart Rate Variability using Standard Deviation
+fprintf('Heart Rate Variability: %s\n',HVR);
+ 
+[resprate] = calcRespRate(pulserate,age);
+subplot(2,1,2)
+plot(resprate);
+title("Respiration Rate vs Time");
+ 
+% Blood Pressure
+figure(4)
+plot(bloodpres);
+title("Blood Pressure vs Time");
+ 
+% Abnormal Heart Rate
+[HeartRateStatus] = checkAbnormalHR(pulserate,age);
+fprintf('Heart Rate Status: %s\n',HeartRateStatus);
+ 
+%------------------------------------------------------------------ENVIRONMENT------------------------------------------------------------------------
+ 
+load dataset_environment.txt;
+atmpres = dataset_environment(:,1).*2;  % *2 just due to nature of randomly chosen dataset
+ambtemp = dataset_environment(:,2);
+humidity = dataset_environment(:,3);
+airqual = dataset_environment(:,4);
+elevation = dataset_environment(:,5);
+ 
+% Atmospheric temp
+figure(1)
+plot(atmpres);
+title("Atmospheric Pressure vs Time");
+ 
+% Ambient temp
+figure(2)
+plot(ambtemp);
+title("Ambient Temperature vs Time");
+ 
+% Humidity
+figure(3)
+plot(humidity);
+title("Humidity vs Time");
+ 
+% Air quality
+figure(4)
+plot(airqual);
+title("Air quality vs Time");
+ 
+% Elevation
+figure(5)
+plot(elevation);
+title("Elevation vs Time");
+ 
+% //////////////////////////////////////////////---PROBABILITY---//////////////////////////////////////////////////////
+ 
+blunt=[];
+projectile=[];
+shockwave=[];
+fall=[];
+ 
+for i=1:length(AngVel_Scalar)
+        blunt=[blunt 0];
+        projectile=[projectile 0];
+        shockwave=[shockwave 0];
+        fall=[fall 0];
+end
+ 
+% ------------- MOTION:   AngAcc, AngVel, AngDisp, LinAcc, (Pending: LinDisp, LinVel) -------------
+ 
+for i=2:length(AngVel_Scalar)
+    if( (AngVel_Scalar(i)-AngVel_Scalar(1)) > 10 )
+        blunt(i)=blunt(i)+0.5;
+        projectile(i)=projectile(i)+1;
+    end
+end
+ 
+ 
+% ------------- VITALS:   spo2, bodytemp, pulserate, bloodpres, resprate -------------
+ 
+for i=2:length(spo2)
+    if( (spo2(i)-spo2(1)) > 0.2 )
+        blunt(i)=blunt(i)+1;
+        projectile(i)=projectile(i)+1;
+        shockwave(i)=shockwave(i)+1;
+    end
+end
+ 
+for i=2:length(bodytemp)
+    if( (bodytemp(i)-bodytemp(1)) > 3 )
+        blunt(i)=blunt(i)+1;
+        projectile(i)=projectile(i)+1;
+    end
+end
+ 
+for i=2:length(pulserate)
+    if( (pulserate(i)-pulserate(1)) > 30 )
+        blunt(i)=blunt(i)+1;
+        projectile(i)=projectile(i)+1;
+        shockwave(i)=shockwave(i)+1;
+    end
+end
+ 
+for i=2:length(bloodpres)
+    if( (bloodpres(i)-bloodpres(1)) > 0.5 )
+        blunt(i)=blunt(i)+1;
+        projectile(i)=projectile(i)+1;
+        shockwave(i)=shockwave(i)+1;
+    end
+end
+ 
+for i=2:length(resprate)
+    if( (resprate(i)-resprate(1)) > 10 )
+        shockwave(i)=shockwave(i)+2;
+    end
+end
+ 
+% ------------- ENVIRONMENT:  atmpres, ambtemp, humidity, airqual, elevation -------------
+ 
+for i=2:length(atmpres)
+    if( (atmpres(i)-atmpres(1)) > 1 )
+        blunt(i)=blunt(i)+1;
+        projectile(i)=projectile(i)+1;
+        shockwave(i)=shockwave(i)+1;
+    end
+end
+ 
+for i=2:length(ambtemp)
+    if( (ambtemp(i)-ambtemp(1)) > 10 )
+        shockwave(i)=shockwave(i)+1;
+    end
+end
+ 
+for i=2:length(humidity)
+    if( (humidity(i)-humidity(1)) > 10 )
+        shockwave(i)=shockwave(i)+1;
+    end
+end
+ 
+for i=2:length(airqual)
+    if( (airqual(i)-airqual(1)) > 10 )
+        shockwave(i)=shockwave(i)+1;
+        fall(i)=fall(i)+0.5;
+    end
+end
+ 
+% for i=2:length(elevation)
+%     if( (elevation(i)-elevation(1)) > 10 )
+%         shockwave(i)=shockwave(i)+1;
+%         fall(i)=fall(i)+0.5;
+%     end
+% end
+ 
+format shortG;
+display(blunt);
+display(projectile);
+display(shockwave);
+display(fall);
+ 
+% ---PROBABIILITY---
+N=length(blunt);
+probability = zeros(4,N);
+% probability(1,1) = "Blunt";
+% probability(2,1) = "Projectile";
+% probability(3,1) = "Shockwave";
+% probability(4,1) = "Fall";
+ 
+for i=1:N
+  
+    sumTemp = blunt(i) + projectile(i) + shockwave(i) + fall(i);
+    if(sumTemp ~= 0)
+        probability(1,i) = blunt(i)/sumTemp;
+        probability(2,i) = projectile(i)/sumTemp;
+        probability(3,i) = shockwave(i)/sumTemp;
+        probability(4,i) = fall(i)/sumTemp;
+    else
+        probability(1,i) = 0;
+        probability(2,i) = 0;
+        probability(3,i) = 0;
+        probability(4,i) = 0;
+    end
+    
+end
+ 
+display(probability);
+ 
+ 
+figure(6)
+title("Probability");
+subplot(4,1,1)
+plot(probability(1,:));
+ylim([0 1]);
+title("Blunt Probability");
+subplot(4,1,2)
+plot(probability(2,:));
+ylim([0 1]);
+title("Projectile Probability");
+subplot(4,1,3)
+plot(probability(3,:));
+ylim([0 1]);
+title("Shockwave Probability");
+subplot(4,1,4)
+plot(probability(4,:));
+ylim([0 1]);
+title("Fall Probability");
+
+
