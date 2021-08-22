@@ -1,0 +1,86 @@
+#pragma config FOSC = XT
+#pragma config WDTE = OFF
+#pragma config PWRTE = ON
+#pragma config BOREN = ON
+#pragma config LVP = OFF
+#pragma config CPD = OFF
+#pragma config WRT = OFF
+#pragma config CP = OFF
+#define _XTAL_FREQ 8000000
+#include <xc.h>
+#include <stdint.h>
+void main()
+{
+TRISB = 0x00; //all pins of port B as output
+PORTB = 0x00; //initialize port B pins as 0
+TMR1 = 65360; //Enable counting upto 0.0001 seconds precision
+TMR1CS = 0; // Choose the local clock source (timer mode)
+T1CKPS0 = 0; // pre-scaler ratio (1:1)
+T1CKPS1 = 0;
+TMR1ON = 1; // Switch ON Timer1 Module
+TMR1IE = 1; // Timer1 Interrupt Enable Bit
+TMR1IF = 0; // Clear The Interrupt Flag Bit
+PEIE = 1; // Peripherals Interrupts Enable Bit
+GIE = 1; // Global Interrupts Enable Bit
+while(1)
+{
+if(C==1 || C==5 || C==10 || C==14 || C==19 || C==25 || C==31 || C==40)
+{
+RB0 = 1;
+}
+if(C==3 || C==12 || C==22 || C==36)
+{
+RB1 = 1;
+RB0 = 0;
+}
+if(C==7 || C==28)
+{
+RB2 = 1;
+RB1 = 0;
+RB0 = 0;
+}
+if(C==17)
+{
+RB3 = 1;
+RB2 = 0;
+RB1 = 0;
+RB0 = 0;
+}
+if(C==60 || C==69 || C==75 || C==81 || C==86 || C==90 || C==95 || C==99)
+{
+RB0 = 0;
+}
+if(C==64 || C==78 || C==88 || C==97)
+{
+RB1 = 0;
+RB0 = 1;
+}
+if(C==72 || C==93)
+{
+RB2 = 0;
+RB1 = 1;
+RB0 = 1;
+}
+if(C==83)
+{
+RB3 = 0;
+RB2 = 1;
+RB1 = 1;
+RB0 = 1;
+}
+if(C==100)
+{
+RB0 = 0;
+RB4 = ~RB4; C = 0;
+}
+}
+}
+void __interrupt() ISR ()
+{
+if (TMR1IF)
+{
+C++;
+TMR1 = 65360;
+TMR1IF = 0;
+}
+}
