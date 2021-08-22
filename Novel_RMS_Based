@@ -1,0 +1,36 @@
+n=input("Enter no. of Voltage Sources / no. of levels: ")
+ 
+for i=1:n+1
+    x(i)=asin((i-1)/n);
+end
+x
+for i=1:n
+    yt(i)=sqrt((2*(x(i+1)-x(i))+(sin(2*x(i))-sin(2*x(i+1))))/(4*(x(i+1)-x(i))));
+end
+yt
+for i=1:n
+    y0(i)=(i/n-yt(i))+(i-1)/n;
+end
+y0
+for i=1:n
+    x0(i)=asin(y0(i));
+end
+x0
+for i=1:n
+    theta(i)=x0(i)*180/pi;
+end
+theta
+for i=1:n
+    Segment(i)=x0(i)/x0(n);
+end
+Segment
+for i=1:n
+    delay(i)=0.01*x0(i)/x(n+1)/2*1000;
+end
+ 
+for i=1:n
+    Duty(i)=(x(n+1)-x0(i))/x(n+1)*100;
+end
+Duty
+delay
+
